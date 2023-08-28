@@ -1,0 +1,319 @@
+﻿@page "/comercial"
+
+@using System.Globalization
+@using Agence.Shared
+@using Agence.Client.Models
+@using Agence.Client.Services;
+
+@inject IRelatorioService _relatorioService;
+
+<PageTitle>Performance Comercial</PageTitle>
+
+<h1>Performance Comercial</h1>
+
+<RadzenTabs @bind-SelectedIndex=@selectedIndex TabPosition="TabPosition.Right">
+    <Tabs>
+        <RadzenTabsItem Text="Por Consultor">
+            <RadzenTemplateForm Data="@request" Submit="@((Request args) => { Relatorio(args); })">
+                <div class="row">
+                    <div class="col-6">
+                        <RadzenFieldset Text="Início">
+                            <div class="rz-p-12 rz-text-align-center">
+                                <RadzenDatePicker TValue="DateTime" @bind-Value=@request.Initial DateFormat="dd-MM-yyyy" />
+                            </div>
+                        </RadzenFieldset>
+                        <RadzenFieldset Text="Fim">
+                            <div class="rz-p-12 rz-text-align-center">
+                                <RadzenDatePicker TValue="DateTime" @bind-Value=@request.Final DateFormat="dd-MM-yyyy" />
+                            </div>
+                        </RadzenFieldset>
+                        <div style="padding: 8px">
+                            <RadzenButton ButtonType="ButtonType.Submit" Text="Relatório" Icon="description" ButtonStyle="ButtonStyle.Info" Shade="Shade.Light" />
+                            <RadzenButton Click=@(args => Grafico()) Text="Gráfico" Icon="assessment" ButtonStyle="ButtonStyle.Info" Shade="Shade.Dark" />
+                            <RadzenButton Click=@(args => Pizza()) Text="Pizza" Icon="donut_small" ButtonStyle="ButtonStyle.Info" Shade="Shade.Darker" />
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        @if (consultores?.Success == true)
+                        {
+                            <RadzenFieldset Text="Consultores">
+                                <div class="rz-p-12 rz-text-align-center">
+                                <RadzenListBox @bind-Value=@request.Consultants Data=@consultores.Value TextProperty="NoUsuario" ValueProperty="CoUsuario"
+                                               Multiple=true AllowClear=true Placeholder="Seleccione consultores" Style="width: 100%; max-width: 400px; height: 200px" />
+                            </div>
+                            </RadzenFieldset>
+                        }
+                        else
+                        {
+                            <p> No hay consultores disponibles: @consultores?.Message</p>
+                        }
+                    </div>
+                </div>
+            </RadzenTemplateForm>
+            @if (_isVisibleRelatorio && relatorios != null)
+            {
+                foreach (var relatorio in relatorios)
+                {
+                    <RadzenFieldset Text="@relatorio.NoUsuario">
+                        <RadzenDataGrid @ref="reservorioGrid" ColumnWidth="220px" Data="@relatorio.RelatorioList" TItem="RelatorioDto">
+                        <Columns>
+                            <RadzenDataGridColumn Width="60px" TItem="RelatorioDto" Title="Período" TextAlign="TextAlign.Center">
+                                <Template Context="data">
+                                        @String.Format(new CultureInfo("pt-BR"), "{0:MMMM 'de' yyyy}", @data.Periodo)
+                                </Template>
+                                <FooterTemplate>
+                                    <b>SALDO:</b>
+                                </FooterTemplate>
+                            </RadzenDataGridColumn>
+                            <RadzenDataGridColumn Width="160px" TItem="RelatorioDto" Property="ReceitaLiquida" Title="Receita Líquida">
+                                <Template Context="data">
+                                    @String.Format(new CultureInfo("pt-BR"), "R$ {0:#,#}", @data.ReceitaLiquida)
+                                </Template>
+                                <FooterTemplate>
+                                        <b>@String.Format(new CultureInfo("pt-BR"), "R$ {0:#,#}", @relatorio.RelatorioList?.Sum(x => x.ReceitaLiquida))</b>
+                                </FooterTemplate>
+                            </RadzenDataGridColumn>
+
+                            <RadzenDataGridColumn Width="160px" TItem="RelatorioDto" Property="CustoFixo" Title="Custo Fixo">
+                                <Template Context="data">
+                                    @String.Format(new CultureInfo("pt-BR"), "R$ {0:#,#}", @data.CustoFixo)
+                                </Template>
+                                <FooterTemplate>
+                                        <b>@String.Format(new CultureInfo("pt-BR"), "R$ {0:#,#}", @relatorio.RelatorioList?.Sum(x => x.CustoFixo))</b>
+                                </FooterTemplate>
+                            </RadzenDataGridColumn>
+
+                            <RadzenDataGridColumn Width="160px" TItem="RelatorioDto" Property="Comissao" Title="Comissao">
+                                <Template Context="data">
+                                    @String.Format(new CultureInfo("pt-BR"), "R$ {0:#,#}", @data.Comissao)
+                                </Template>
+                                <FooterTemplate>
+                                        <b>@String.Format(new CultureInfo("pt-BR"), "R$ {0:#,#}", @relatorio.RelatorioList?.Sum(x => x.Comissao))</b>
+                                </FooterTemplate>
+                            </RadzenDataGridColumn>
+
+                            <RadzenDataGridColumn Width="160px" TItem="RelatorioDto" Property="Lucro" Title="Lucro">
+                                <Template Context="data">
+                                    @String.Format(new CultureInfo("pt-BR"), "R$ {0:#,#}", @data.Lucro)
+                                </Template>
+                                <FooterTemplate>
+                                        <b>@String.Format(new CultureInfo("pt-BR"), "R$ {0:#,#}", @relatorio.RelatorioList?.Sum(x => x.Lucro))</b>
+                                </FooterTemplate>
+                            </RadzenDataGridColumn>
+
+                        </Columns>
+                        </RadzenDataGrid>
+                    </RadzenFieldset>
+                }
+            }
+            @if (_isVisibleGrafico && relatorios != null && barChart?.Count > 0)
+            {
+                <div class="container">
+                    <div class="row">
+                        <div class="col-sm-12 my-5">
+                            <h4>Performance Comercial</h4>
+                            <RadzenChart>
+                                @foreach(var bar in barChart)
+                                {
+                                    <RadzenColumnSeries Data="@bar.Receitas" CategoryProperty="Mes" Title="@bar.Nome" LineType="LineType.Dashed" ValueProperty="Receita">
+                                        <RadzenSeriesDataLabels Visible="false" />
+                                    </RadzenColumnSeries>                                    
+                                }
+                                <RadzenLineSeries Smooth="true" Data="@custoMedio" CategoryProperty="Mes" Title="Custo Fixo Medio" ValueProperty="Custo" LineType="LineType.Dashed" RenderingOrder="1">
+                                    <RadzenMarkers MarkerType="MarkerType.Square" />
+                                </RadzenLineSeries>
+                                <RadzenColumnOptions Radius="5" />
+                                <RadzenValueAxis Formatter="@FormatAsReais">
+                                    <RadzenGridLines Visible="true" />
+                                    <RadzenAxisTitle Text="Receitas in BRL" />
+                                </RadzenValueAxis>
+                            </RadzenChart>
+                        </div>
+                    </div>
+                </div>
+            }
+            @if (_isVisiblePizza && relatorios != null && pizzaChart != null)
+            {
+                <div class="container">
+                    <div class="row">
+                        <div class="col-sm-12 col-lg-6 offset-lg-3 my-5">
+                            <RadzenChart>
+                                <RadzenDonutSeries Data="@pizzaChart" CategoryProperty="Nome" ValueProperty="Receita">
+                                    <ChildContent>
+                                        <RadzenSeriesDataLabels Visible="true" />
+                                    </ChildContent>
+                                    <TitleTemplate>
+                                        <div class="rz-donut-content">
+                                            <div>Participacao</div>
+                                            <div>na Receita</div>
+                                        </div>
+                                    </TitleTemplate>
+                                </RadzenDonutSeries>
+                            </RadzenChart>
+                        </div>
+                    </div>
+                </div>
+            }
+        </RadzenTabsItem>
+        <RadzenTabsItem Text="Por Cliente">
+            Por Cliente
+        </RadzenTabsItem>
+    </Tabs>
+</RadzenTabs>
+
+
+@code {
+    int selectedIndex = 0;
+    private bool _isVisibleRelatorio = false;
+    private bool _isVisibleGrafico = false;
+    private bool _isVisiblePizza = false;
+
+    private async Task Relatorio(Request request)
+    {
+        _isVisibleRelatorio = true;
+        _isVisibleGrafico = false;
+        _isVisiblePizza = false;
+
+        var relatoriosApi = await _relatorioService.GetRelatorios(request);
+        if (relatoriosApi != null && relatoriosApi.Success)
+        {
+            relatorios = relatoriosApi.Value;
+            if (reservorioGrid != null)
+                await reservorioGrid.Reload();
+        }
+        else
+        {
+            throw new Exception(relatoriosApi?.Message);
+        }
+    }
+
+    private void Grafico()
+    {
+        _isVisibleRelatorio = false;
+        _isVisibleGrafico = true;
+        _isVisiblePizza = false;
+
+        if (relatorios != null)
+        {
+            barChart = new();
+            custoMedio = new();
+            var totalConsultores = relatorios.Count;
+            var custoSum = 0m;
+            custoSum = relatorios.Sum(x => x.RelatorioList?.First().CustoFixo) ?? 0;
+            var custoMed = custoSum / totalConsultores;
+            var meses = new List<string>();
+            foreach (var receita in relatorios)
+            {                
+                var newBar = new BarChartReceita() { Nome = receita.NoUsuario, Receitas = new List<DataItem>() };
+                if (receita?.RelatorioList?.Count > 0)
+                {
+                    foreach(var relatorio in receita.RelatorioList)
+                    {
+                        newBar.Receitas.Add(new DataItem
+                        {
+                            Mes = String.Format(new CultureInfo("pt-BR"), "{0:MMM/yyyy}", relatorio.Periodo),
+                            Receita = Math.Round(relatorio.ReceitaLiquida, 0),
+                            CustoFixo = Math.Round(relatorio.CustoFixo, 0)                            
+                        });
+                        meses.Add(String.Format(new CultureInfo("pt-BR"), "{0:MMM/yyyy}", relatorio.Periodo));
+                    }
+                }
+                barChart.Add(newBar);
+            }
+            var mesesChart = meses.Distinct();
+            foreach(var mes in mesesChart)
+            {
+                custoMedio.Add(new DataCustoFixo()
+                {
+                    Mes = mes,
+                    Custo = custoMed
+                });
+            }
+        }
+    }
+
+    private void Pizza()
+    {
+        _isVisibleRelatorio = false;
+        _isVisibleGrafico = false;
+        _isVisiblePizza = true;
+
+        if (relatorios != null)
+        {
+            pizzaChart = new();
+            var totalReceitas = relatorios.Sum(x => x.RelatorioList?.Sum(x => x.ReceitaLiquida)) ?? 0;
+            foreach(var receita in relatorios)
+            {
+                if (receita?.RelatorioList?.Count > 0 && totalReceitas > 0)
+                    pizzaChart.Add(new PizzaItem
+                        {
+                            Nome = receita.NoUsuario,
+                            Receita = Math.Round((receita.RelatorioList.Sum(x => x.ReceitaLiquida) / totalReceitas) * 100, 1)
+                        });
+            }
+        }
+    }
+
+    Request request = new Request()
+    {
+        Initial = new DateTime(2007, 09, 01),
+        Final = new DateTime(2007, 09, 30)
+    };
+    ResponseAPI<List<ConsultoresDto>>? consultores;
+    RadzenDataGrid<RelatorioDto>? reservorioGrid;
+    List<ResponseRelatorioDto>? relatorios;
+
+    class DataItem
+    {
+        public string? Mes { get; set; }
+        public decimal Receita { get; set; }
+        public decimal CustoFixo { get; set; }
+    }
+
+    class DataCustoFixo
+    {
+        public string? Mes { get; set; }
+        public decimal Custo { get; set; }
+    }
+
+    List<DataCustoFixo>? custoMedio;
+
+    class PizzaItem
+    {
+        public string? Nome { get; set; }
+        public decimal Receita { get; set; }
+    }
+    List<PizzaItem>? pizzaChart;
+
+    class BarChartReceita
+    {
+        public string? Nome { get; set; }
+        public List<DataItem>? Receitas { get; set; }
+    }
+    List<BarChartReceita>? barChart;
+
+    string FormatAsUSD(object value)
+    {
+        return ((double)value).ToString("C0", CultureInfo.CreateSpecificCulture("en-US"));
+    }
+
+    string FormatAsReais(object value)
+    {
+        return ((double)value).ToString("R$ #,#", CultureInfo.CreateSpecificCulture("pt-BR"));
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        consultores = await _relatorioService.GetConsultores();
+        await base.OnInitializedAsync();
+    }
+
+    int index;
+    void ResetIndex(bool shouldReset)
+    {
+        if (shouldReset)
+        {
+            index = 0;
+        }
+    }
+}

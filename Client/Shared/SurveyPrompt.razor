@@ -1,0 +1,16 @@
+﻿<div class="alert alert-secondary mt-4">
+    <span class="oi oi-pencil me-2" aria-hidden="true"></span>
+    <strong>@Title</strong>
+
+    <span class="text-nowrap">
+        Muito obrigado por reservar um tempo para revisar. Atualmente sou
+        <a target="_blank" class="font-weight-bold link-dark" href="https://www.linkedin.com/in/jairobaron/">Senior Software Engineering</a>
+    </span>
+    e podemos conversar sobre o que você pensa.
+</div>
+
+@code {
+    // Demonstrates how a parent component can supply parameters
+    [Parameter]
+    public string? Title { get; set; }
+}
