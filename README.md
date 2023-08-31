@@ -1,5 +1,7 @@
 # AgenceTest
 Test for Agence
+Se ha utilizado Blazor para el frontend (Proyecto Agence.Cliente) y .Net Web Api para el backend (Proyecto Agence.Server)
+Blazor has been used for the frontend (Agence.Client Project) and .Net Web Api for the backend (Agence.Server Project)
 # Modelo de Datos
 ![Agence Test](https://github.com/jairobaron/AgenceTest/assets/13301595/662e5696-bb47-4bae-beae-44ec17334b11)
 # Capturas de Pantalla
